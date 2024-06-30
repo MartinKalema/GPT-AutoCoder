@@ -10,7 +10,8 @@ client = OpenAI(api_key= os.environ.get("OPENAI_API_KEY"))
 
 # prompt user
 print(colored("Welcome to the Full Stack Web Developer Assistant", "green"))
-print(colored("!!! DELETE HTML, CSS, & JS FILES IF YOU WANT THE ASSISTANT TO START FROM SCRATCH !!!", "red"))
+print(colored("WARNING: Deleting HTML, CSS, & JS files will reset the assistant to start from scratch.", "red"))
+
 
 instruction = input("Press any key to continue or type 'exit' to exit")
 if instruction.strip().lower() == "exit":
@@ -18,12 +19,10 @@ if instruction.strip().lower() == "exit":
 
 # load params
 yaml_contents = read_yaml_file('params.yml')
-model = yaml_contents['MODEL']
-SP1 = yaml_contents['SYSTEM_PROMPT_ONE']['MESSAGE']
 
 # returns code
 @tenacity.retry(wait=tenacity.wait_exponential(multiplier=1, min=4, max=10), stop=tenacity.stop_after_attempt(4), reraise=True,)
-def return_code(model: str) -> Dict[str, str]:
+def return_code_and_user_input(model: str) -> Dict[str, str]:
     """
     Prompt the user for input, capture it, and interact with an AI model to generate code files.
 
@@ -41,8 +40,8 @@ def return_code(model: str) -> Dict[str, str]:
     """
     entry = ''
 
-    print(colored("\n NOTE: This is a multiline input, you can write as much detail as you want here.", "green"))
-    print(colored("What type of website can I code for you? (Type 'done' on a new line and press 'enter' when you are done)", "yellow"))
+    print(colored("\n NOTE: This input accepts multiple lines. Feel free to provide as much detail as you'd like.", "green"))
+    print(colored("What type of website can I code for you? (Type 'done' on a new line and press 'enter' when finished.)", "yellow"))
 
     while True:
         response = input()
@@ -56,7 +55,7 @@ def return_code(model: str) -> Dict[str, str]:
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": f"{SP1}"},
+            {"role": "system", "content": f"{yaml_contents['SYSTEM_PROMPT_ONE']['MESSAGE']}"},
             {"role": "user", "content": f"{entry}"},
         ],
         function_call={"name": "write_html_css_js_to_file"},
@@ -92,7 +91,7 @@ def return_code(model: str) -> Dict[str, str]:
 
     if response.choices[0].message.function_call:
         function_args = json.loads(response.choices[0].message.function_call.arguments)
-        return function_args
+        return function_args, entry
     else:
         print(colored(response.choices[0].message.content))
 
@@ -100,7 +99,7 @@ def return_code(model: str) -> Dict[str, str]:
 
 # create files
 if not os.path.exists('index.html'):
-    function_args = return_code(model)
+    function_args, previous_user_input = return_code_and_user_input(yaml_contents['MODEL'])
     write_html_css_js_to_file(**function_args)
 
 # code improvement vars
@@ -115,4 +114,21 @@ while True:
     previous_css = open('style.css').read()
     previous_js = open('script.js').read()
 
+    if retry_due_to_error:
+        entry = previous_user_input
+    elif x % number_of_autonomous_runs_without_user_feedback == 0:
+        entry = ''
+
+        print(colored("\n NOTE: This input accepts multiple lines. Feel free to provide as much detail as you'd like.", "green"))
+        print(colored("What type of improvements do you want for this website? (Type 'done' on a new line and press 'enter' when finished.)", "yellow"))
+
+        while True:
+            response = input()
+
+            if response.strip().lower() == 'done':
+                break
+
+            entry += response + '\n'
+    else:
+        entry = yaml_contents['IMPROVEMENT_PROMPT']['MESSAGE']
 
