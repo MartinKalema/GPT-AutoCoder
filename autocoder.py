@@ -100,9 +100,19 @@ def return_code(model: str) -> Dict[str, str]:
 
 # create files
 if not os.path.exists('index.html'):
-    
     function_args = return_code(model)
-
     write_html_css_js_to_file(**function_args)
+
+# code improvement vars
+x = 1
+number_of_autonomous_runs_without_user_feedback = 1
+retry_due_to_error = False
+
+while True:
+    # retrieve code to be improved
+    previous_plan = open('plan.md').read()
+    previous_html = open('index.html').read()
+    previous_css = open('style.css').read()
+    previous_js = open('script.js').read()
 
 
