@@ -2,8 +2,9 @@ import tenacity
 import os
 from openai import OpenAI
 from termcolor import colored
-from utils import read_yaml_file
+from utils import read_yaml_file, write_html_css_js_to_file
 import json
+from typing import Optional, Any
 
 client = OpenAI(api_key= os.environ.get("OPENAI_API_KEY"))
 
@@ -81,4 +82,13 @@ def return_code(model):
         return function_args
     else:
         print(colored(response.choices[0].message.content))
+
+
+# create files
+if not os.path.exists('index.html'):
+    
+    function_args = return_code(model)
+
+    write_html_css_js_to_file(**function_args)
+
 

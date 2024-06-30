@@ -43,3 +43,44 @@ def read_yaml_file(file_path: str) -> Optional[Any]:
     except yaml.YAMLError as e:
         print(f"Error reading YAML file {file_path}: {e}")
         return None
+    
+    
+def write_html_css_js_to_file(plan: str, html: str, css: str, js: str) -> Optional[str]:
+    """
+    Write HTML, CSS, JS, and a plan to respective files.
+
+    Args:
+        plan (str): Content of the plan to write to 'plan.md'.
+        html (str): Content of the HTML file to write to 'index.html'.
+        css (str): Content of the CSS file to write to 'style.css'.
+        js (str): Content of the JavaScript file to write to 'script.js'.
+
+    Returns:
+        Optional[str]: A success message if files are created successfully, None if an error occurs.
+
+    Example:
+        plan_content = "This is the plan."
+        html_content = "<html><body><h1>Hello, World!</h1></body></html>"
+        css_content = "body { background-color: lightblue; }"
+        js_content = "console.log('Hello, World!');"
+
+        result = write_html_css_js_to_file(plan_content, html_content, css_content, js_content)
+        if result:
+            print(result)
+    """
+    file_contents = {
+        'plan.md': plan,
+        'index.html': html,
+        'style.css': css,
+        'script.js': js
+    }
+
+    try:
+        for filename, content in file_contents.items():
+            with open(filename, 'w') as f:
+                f.write(content)
+    except IOError as e:
+        print(f"Error writing to file: {e}")
+        return None
+
+    return "Files created successfully"
