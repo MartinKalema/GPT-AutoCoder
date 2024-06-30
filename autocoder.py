@@ -1,4 +1,4 @@
-import tenacity
+from tenacity import retry, wait_exponential, stop_after_attempt
 import os
 from openai import OpenAI
 from termcolor import colored
@@ -7,6 +7,12 @@ import json
 from typing import Dict
 
 client = OpenAI(api_key= os.environ.get("OPENAI_API_KEY"))
+
+MODEL_RETRY_SETTINGS = {
+    'wait': wait_exponential(multiplier=1, min=4, max=10),
+    'stop': stop_after_attempt(4),
+    'reraise': True,
+}
 
 # prompt user
 print(colored("Welcome to the Full Stack Web Developer Assistant", "green"))
@@ -50,7 +56,7 @@ functions=[
         ]
 
 # returns code
-@tenacity.retry(wait=tenacity.wait_exponential(multiplier=1, min=4, max=10), stop=tenacity.stop_after_attempt(4), reraise=True,)
+@retry(**MODEL_RETRY_SETTINGS)
 def return_code_and_user_input(model: str) -> Dict[str, str]:
     """
     Prompt the user for input, capture it, and interact with an AI model to generate code files.
