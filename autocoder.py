@@ -12,13 +12,42 @@ client = OpenAI(api_key= os.environ.get("OPENAI_API_KEY"))
 print(colored("Welcome to the Full Stack Web Developer Assistant", "green"))
 print(colored("WARNING: Deleting HTML, CSS, & JS files will reset the assistant to start from scratch.", "red"))
 
-
 instruction = input("Press any key to continue or type 'exit' to exit")
 if instruction.strip().lower() == "exit":
     exit()
 
 # load params
 yaml_contents = read_yaml_file('params.yml')
+
+# functions
+functions=[
+            {
+                "name": "write_html_css_js_to_file",
+                "description": "This function takes in html, css, js and writes them to their respective files",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "plan": {
+                            "type": "string",
+                            "description": "Your detailed plan in markdown to solve errors or improve code to be written to plan file",
+                        },
+                        "html": {
+                            "type": "string",
+                            "description": "The html code to be written to html file",
+                        },
+                        "css": {
+                            "type": "string",
+                            "description": "The css code to be written to css file",
+                        },
+                        "js": {
+                            "type": "string",
+                            "description": "The js code to be written to js file",
+                        },
+                    },
+                    "required": ["plan", "html", "css", "js"]
+                }
+            }
+        ]
 
 # returns code
 @tenacity.retry(wait=tenacity.wait_exponential(multiplier=1, min=4, max=10), stop=tenacity.stop_after_attempt(4), reraise=True,)
@@ -55,38 +84,11 @@ def return_code_and_user_input(model: str) -> Dict[str, str]:
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": f"{yaml_contents['SYSTEM_PROMPT_ONE']['MESSAGE']}"},
+            {"role": "assistant", "content": f"{yaml_contents['SYSTEM_PROMPT_ONE']['MESSAGE']}"},
             {"role": "user", "content": f"{entry}"},
         ],
         function_call={"name": "write_html_css_js_to_file"},
-        functions=[
-            {
-                "name": "write_html_css_js_to_file",
-                "description": "This function takes in html, css, js and writes them to their respective files",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "plan": {
-                            "type": "string",
-                            "description": "Your detailed plan in markdown to solve errors or improve code to be written to plan file",
-                        },
-                        "html": {
-                            "type": "string",
-                            "description": "The html code to be written to html file",
-                        },
-                        "css": {
-                            "type": "string",
-                            "description": "The css code to be written to css file",
-                        },
-                        "js": {
-                            "type": "string",
-                            "description": "The js code to be written to js file",
-                        },
-                    },
-                    "required": ["plan", "html", "css", "js"]
-                }
-            }
-        ]
+        functions= functions
     )
 
     if response.choices[0].message.function_call:
@@ -131,4 +133,52 @@ while True:
             entry += response + '\n'
     else:
         entry = yaml_contents['IMPROVEMENT_PROMPT']['MESSAGE']
+
+    print(colored("Starting to code...", "green"))
+    print(colored("Improvement attempt: " + str(x), "magenta"))
+
+    response = client.chat.completions.create(
+        model= yaml_contents['MODEL'],
+        messages= [
+            {"role": "assistant", "content": f"{yaml_contents['SYSTEM_PROMPT_TWO']['MESSAGE']}"},
+            {"role": "user", "content": f"""
+            Previous Plan: (Retain the beneficial parts and remove the undesirable ones)
+            {previous_plan}
+
+            Current HTML file  
+            {previous_html}
+
+            Current CSS file
+            {previous_css}
+
+            Current JS file
+            {previous_js}
+
+            User Input
+            {entry}
+            """},
+        ],
+        functions= functions,
+        function_call={"name": "write_html_css_js_to_file"},
+    )
+
+    if response.choices[0].message.content:
+        print(colored(response.choices[0].message.content))
+
+    if response.choices[0].message.function_call:
+        try:
+            function_args = json.loads(response.choices[0].message.function_call.arguments)
+        except Exception as e:
+            retry_due_to_error = True
+            previous_user_input = entry
+            print(colored(e, "red"))
+    else:
+        print(colored(response.choices[0].message.content, "green"))
+
+    write_html_css_js_to_file(**function_args)
+
+    x += 1
+
+
+
 
